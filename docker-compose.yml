@@ -1,0 +1,38 @@
+version: "3.3"
+services:
+  traefik:
+    image: "traefik:v2.0.0-rc3"
+    container_name: "traefik"
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:8090"
+    ports:
+      - "8090:8090"
+      - "8080:8080"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+
+  backend1:
+    build: .
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`localhost`) && PathPrefix(`/v1`)"
+      - "traefik.http.routers.backend.entrypoints=web"
+      - "traefik.http.routers.backend.middlewares=remove-v1"
+      - "traefik.http.middlewares.remove-v1.stripprefix.prefixes=/v1"
+
+  backend2:
+    build: .
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend2.rule=Host(`localhost`) && PathPrefix(`/v2`)"
+      - "traefik.http.routers.backend2.entrypoints=web"
+      - "traefik.http.routers.backend2.middlewares=remove-v2"
+      - "traefik.http.middlewares.remove-v2.stripprefix.prefixes=/v2"
+
+  frontend:
+    build: ./frontend/
+    network_mode: host
+    command: "'sleep 3; curl localhost:8090/v1/hello; curl localhost:8090/v2/hello'"
